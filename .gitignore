@@ -1,0 +1,18 @@
+# Ignore Gradle project-specific cache directory
+.gradle
+
+# Ignore Gradle build output directory
+build
+
+# Ignore Kotlin plugin data
+.kotlin
+
+# Ignore IDE specific files
+.idea/
+*.iml
+.DS_Store
+
+# Ignore documentation folder as per user request
+myDocs/
+
+
