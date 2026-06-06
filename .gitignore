@@ -15,4 +15,5 @@ build
 # Ignore documentation folder as per user request
 myDocs/
 
-
+# Ignore VS Code specific files
+.vscode/
