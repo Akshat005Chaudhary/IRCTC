@@ -7,7 +7,7 @@ public class Ticket{
     private String trainId;
     private String source;
     private String destination;
-    private String dataOfTravel;
+    private String dateOfTravel;
     private String seatNo;
 
     public Ticket(){
@@ -17,18 +17,18 @@ public class Ticket{
         this.trainId = "";
         this.source = "";
         this.destination = "";
-        this.dataOfTravel = "";
+        this.dateOfTravel = "";
         this.seatNo = "";
     }
 
-    public Ticket(String ticketId, String pnr, String userId, String trainId, String source, String destination, String dataOfTravel, String seatNo){
+    public Ticket(String ticketId, String pnr, String userId, String trainId, String source, String destination, String dateOfTravel, String seatNo){
         this.ticketId = ticketId;
         this.pnr = pnr;
         this.userId = userId;
         this.trainId = trainId;
         this.source = source;
         this.destination = destination;
-        this.dataOfTravel = dataOfTravel;
+        this.dateOfTravel = dateOfTravel;
         this.seatNo = seatNo;
     }
 
@@ -56,8 +56,8 @@ public class Ticket{
         this.destination = destination;
     }
 
-    public void setDataOfTravel(String dataOfTravel){
-        this.dataOfTravel = dataOfTravel;
+    public void setDateOfTravel(String dateOfTravel){
+        this.dateOfTravel = dateOfTravel;
     }
 
     public void setSeatNo(String seatNo){
@@ -88,8 +88,8 @@ public class Ticket{
         return this.destination;
     }
 
-    public String getDataOfTravel(){
-        return this.dataOfTravel;
+    public String getDateOfTravel(){
+        return this.dateOfTravel;
     }
 
     public String getSeatNo(){
