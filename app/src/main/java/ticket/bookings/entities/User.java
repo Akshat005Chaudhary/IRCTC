@@ -1,13 +1,19 @@
 package ticket.bookings.entities;
 import java.util.ArrayList;
 import java.util.List;
+import jakarta.persistence.*;
 
+@Entity
+@Table(name = "users")
 public class User{
     private String name;
     private String password;
+    @Column(unique = true, nullable = false)
     private String email;
     private String phone;
+    @ElementCollection(fetch = FetchType.EAGER)
     private List<String> ticketsBooked;
+    @Id
     private String userId;
 
     public User(){

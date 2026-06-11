@@ -3,12 +3,21 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import jakarta.persistence.*;
 
+@Entity
+@Table(name = "trains")
 public class Train{
+    @Id
     private String trainId;
     private String trainNo;
+    @ElementCollection(fetch = FetchType.EAGER)
+    @OrderColumn(name = "station_order")
     private List<String> stations;
+    @ElementCollection(fetch = FetchType.EAGER)
     private Map<String, String> stationTimes;
+    @Convert(converter = SeatsConverter.class)
+    @Column(columnDefinition = "TEXT")
     private List<List<Integer>> seats;
 
     public Train(){

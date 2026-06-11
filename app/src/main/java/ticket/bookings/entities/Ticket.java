@@ -1,6 +1,11 @@
 package ticket.bookings.entities;
 
+import jakarta.persistence.*;
+
+@Entity
+@Table(name = "tickets")
 public class Ticket{
+    @Id
     private String ticketId;
     private String pnr;
     private String userId;

@@ -1,90 +1,72 @@
 package ticket.bookings.services;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
 import ticket.bookings.entities.*;
+import ticket.bookings.repositories.*;
 import ticket.bookings.util.UserServiceUtil;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.core.type.TypeReference;
-import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 
+@Service
 public class UserBookingService {
 
-    // Fields
-    private User user;
-    private List<User> userList;
-    private List<Train> trainList;
-    private List<Ticket> ticketList;
-    private ObjectMapper objectMapper = new ObjectMapper();
-    private static final String USERS_PATH = "src/main/java/ticket/localDb/users.json";
-    private static final String TRAINS_PATH = "src/main/java/ticket/localDb/trains.json";
-    private static final String BOOKINGS_PATH = "src/main/java/ticket/localDb/bookings.json";
+    private final UserRepository userRepository;
+    private final TrainRepository trainRepository;
+    private final TicketRepository ticketRepository;
 
-    // default constructor
-    public UserBookingService() throws IOException{
-        /*
-        (Input/Output Exception) is used in this constructor because the code is actively reading data from external files stored on your hard drive.
-        */
-       /*
-        Whenever there is contact with I/O it is always safe to put IOException there
-       */
-        File usersFile = new File(USERS_PATH);
-        userList = objectMapper.readValue(usersFile, new TypeReference<List<User>>() {});
-        File trainsFile = new File(TRAINS_PATH);
-        trainList = objectMapper.readValue(trainsFile, new TypeReference<List<Train>>() {});
-        File ticketsFile = new File(BOOKINGS_PATH);
-        ticketList = objectMapper.readValue(ticketsFile, new TypeReference<List<Ticket>>() {});
-    }
-
-    // Helper method for saving users to user.json file
-    public void saveUserListToFile() throws IOException {
-        File usersFile = new File(USERS_PATH);
-        objectMapper.writeValue(usersFile, userList);
-    }
-
-    public void saveTrainListToFile() throws IOException {
-        File trainsFile = new File(TRAINS_PATH);
-        objectMapper.writeValue(trainsFile, trainList);
-    }
-
-    public void saveTicketListToFile() throws IOException {
-        File ticketsFile = new File(BOOKINGS_PATH);
-        objectMapper.writeValue(ticketsFile, ticketList);
+    @Autowired
+    public UserBookingService(UserRepository userRepository, 
+                              TrainRepository trainRepository, 
+                              TicketRepository ticketRepository) {
+        this.userRepository = userRepository;
+        this.trainRepository = trainRepository;
+        this.ticketRepository = ticketRepository;
     }
 
     // Signup method
-    public boolean signUpUser(User user){
-        String hashedPassword = UserServiceUtil.hashPassword(user.getPassword());
-        user.setPassword(hashedPassword);
-        userList.add(user);
-        try{
-            saveUserListToFile();
-            return true;
-        }catch(IOException e){
-            System.out.println("Error Occured:" + e.getMessage());
+    public boolean signUpUser(User user) {
+        if (userRepository.findByEmail(user.getEmail()).isPresent()) {
+            System.out.println("User with email " + user.getEmail() + " already exists.");
             return false;
         }
+        
+        String hashedPassword = UserServiceUtil.hashPassword(user.getPassword());
+        user.setPassword(hashedPassword);
+        
+        if (user.getUserId() == null || user.getUserId().isEmpty()) {
+            user.setUserId(UUID.randomUUID().toString());
+        }
+        if (user.getTicketsBooked() == null) {
+            user.setTicketsBooked(new ArrayList<>());
+        }
+
+        userRepository.save(user);
+        return true;
     }
 
-    // login method
-    public boolean loginUser(String email, String password){
-        for(User user: userList){ 
-            if(user.getEmail().equals(email)){
-                if(UserServiceUtil.checkPassword(password, user.getPassword())){
-                    this.user = user;
-                    return true;
-                }
+    // Login method
+    public Optional<User> loginUser(String email, String password) {
+        Optional<User> userOpt = userRepository.findByEmail(email);
+        if (userOpt.isPresent()) {
+            User user = userOpt.get();
+            if (UserServiceUtil.checkPassword(password, user.getPassword())) {
+                return Optional.of(user);
             }
         }
-        return false;
+        return Optional.empty();
     }
 
     // Train Search
-        public List<Train> searchTrains(String source, String destination) {
+    public List<Train> searchTrains(String source, String destination) {
+        List<Train> allTrains = trainRepository.findAll();
         List<Train> foundTrains = new ArrayList<>();
-        for (Train train : trainList) {
+        
+        for (Train train : allTrains) {
             List<String> stations = train.getStations();
             int sourceIndex = stations.indexOf(source);
             int destIndex = stations.indexOf(destination);
@@ -97,18 +79,25 @@ public class UserBookingService {
         return foundTrains;
     }
 
-    // Implementing booking ticket
-    public boolean bookTicket(Train train, String source, String destination, String dateOfTravel) {
-        if (user == null) {
-            System.out.println("Please login to book a ticket.");
-            return false;
+    // Book ticket
+    public Ticket bookTicket(String userId, String trainId, String source, String destination, String dateOfTravel) {
+        Optional<User> userOpt = userRepository.findById(userId);
+        if (userOpt.isEmpty()) {
+            throw new IllegalArgumentException("User not found.");
         }
+        User user = userOpt.get();
+
+        Optional<Train> trainOpt = trainRepository.findById(trainId);
+        if (trainOpt.isEmpty()) {
+            throw new IllegalArgumentException("Train not found.");
+        }
+        Train train = trainOpt.get();
 
         List<List<Integer>> seats = train.getSeats();
         int bookedRow = -1;
         int bookedCol = -1;
 
-        // Simple seat allocation: find the first 0 (available seat)
+        // Find the first available seat (0)
         for (int i = 0; i < seats.size(); i++) {
             List<Integer> row = seats.get(i);
             for (int j = 0; j < row.size(); j++) {
@@ -123,127 +112,74 @@ public class UserBookingService {
         }
 
         if (bookedRow == -1) {
-            System.out.println("No seats available on this train.");
-            return false;
+            throw new IllegalStateException("No seats available on this train.");
         }
 
         // Generate ticket details
-        String ticketId = java.util.UUID.randomUUID().toString();
+        String ticketId = UUID.randomUUID().toString();
         String pnr = "PNR" + (int)(Math.random() * 900000000 + 100000000); // 9-digit random PNR
         String seatNo = "Row " + (bookedRow + 1) + ", Seat " + (bookedCol + 1);
 
-        Ticket newTicket = new Ticket(ticketId, pnr, user.getUserId(), train.getTrainId(), source, destination, dateOfTravel, seatNo);
+        Ticket newTicket = new Ticket(ticketId, pnr, userId, trainId, source, destination, dateOfTravel, seatNo);
 
-        ticketList.add(newTicket);
+        // Save state changes
+        trainRepository.save(train);
+        ticketRepository.save(newTicket);
+        
         user.getTicketsBooked().add(pnr);
+        userRepository.save(user);
 
-        try {
-            saveTrainListToFile();
-            saveTicketListToFile();
-            saveUserListToFile();
-            System.out.println("Ticket Booked Successfully! PNR: " + pnr + ", Seat: " + seatNo);
-            return true;
-        } catch (IOException e) {
-            System.out.println("Failed to save booking: " + e.getMessage());
-            return false;
-        }
+        System.out.println("Ticket Booked Successfully! PNR: " + pnr + ", Seat: " + seatNo);
+        return newTicket;
     }
 
-    // Cancelling Ticket
-        public boolean cancelTicket(String pnr) {
-        if (user == null) {
-            System.out.println("Please login first.");
+    // Cancel Ticket
+    public boolean cancelTicket(String pnr, String userId) {
+        Optional<User> userOpt = userRepository.findById(userId);
+        if (userOpt.isEmpty()) {
+            System.out.println("User not found.");
             return false;
         }
+        User user = userOpt.get();
 
-        Ticket ticketToCancel = null;
-        for (Ticket t : ticketList) {
-            if (t.getPnr().equals(pnr) && t.getUserId().equals(user.getUserId())) {
-                ticketToCancel = t;
-                break;
-            }
-        }
-
-        if (ticketToCancel == null) {
-            System.out.println("No ticket found with this PNR.");
+        Optional<Ticket> ticketOpt = ticketRepository.findByPnr(pnr);
+        if (ticketOpt.isEmpty() || !ticketOpt.get().getUserId().equals(userId)) {
+            System.out.println("No ticket found with this PNR for the current user.");
             return false;
         }
+        Ticket ticketToCancel = ticketOpt.get();
 
         // Release the seat on the train
         String trainId = ticketToCancel.getTrainId();
         String seatNo = ticketToCancel.getSeatNo();
 
-        try {
-            // Parse row and seat indexes from "Row X, Seat Y"
-            String[] parts = seatNo.split(", ");
-            int row = Integer.parseInt(parts[0].replace("Row ", "")) - 1;
-            int col = Integer.parseInt(parts[1].replace("Seat ", "")) - 1;
+        Optional<Train> trainOpt = trainRepository.findById(trainId);
+        if (trainOpt.isPresent()) {
+            Train train = trainOpt.get();
+            try {
+                // Parse row and seat indexes from "Row X, Seat Y"
+                String[] parts = seatNo.split(", ");
+                int row = Integer.parseInt(parts[0].replace("Row ", "")) - 1;
+                int col = Integer.parseInt(parts[1].replace("Seat ", "")) - 1;
 
-            for (Train train : trainList) {
-                if (train.getTrainId().equals(trainId)) {
-                    train.getSeats().get(row).set(col, 0); // Mark seat as available
-                    break;
-                }
+                train.getSeats().get(row).set(col, 0); // Mark seat as available
+                trainRepository.save(train);
+            } catch (Exception e) {
+                System.out.println("Error releasing seat: " + e.getMessage());
             }
-        } catch (Exception e) {
-            System.out.println("Error releasing seat: " + e.getMessage());
         }
 
-        // Remove the ticket
-        ticketList.remove(ticketToCancel);
+        // Remove the ticket and association
+        ticketRepository.delete(ticketToCancel);
         user.getTicketsBooked().remove(pnr);
+        userRepository.save(user);
 
-        try {
-            saveTrainListToFile();
-            saveTicketListToFile();
-            saveUserListToFile();
-            System.out.println("Ticket Cancelled Successfully.");
-            return true;
-        } catch (IOException e) {
-            System.out.println("Failed to save cancellation: " + e.getMessage());
-            return false;
-        }
+        System.out.println("Ticket Cancelled Successfully.");
+        return true;
     }
 
     // Fetching bookings
-    public void fetchBookings() {
-        if (user == null) {
-            System.out.println("Please login first.");
-            return;
-        }
-
-        boolean hasBookings = false;
-        for (Ticket ticket : ticketList) {
-            if (ticket.getUserId().equals(user.getUserId())) {
-                System.out.println("----------------------------------------");
-                System.out.println("PNR: " + ticket.getPnr());
-                System.out.println("Train ID: " + ticket.getTrainId());
-                System.out.println("Route: " + ticket.getSource() + " -> " + ticket.getDestination());
-                System.out.println("Date: " + ticket.getDateOfTravel());
-                System.out.println("Seat: " + ticket.getSeatNo());
-                hasBookings = true;
-            }
-        }
-
-        if (!hasBookings) {
-            System.out.println("No bookings found for the current user.");
-        } else {
-            System.out.println("----------------------------------------");
-        }
+    public List<Ticket> fetchBookings(String userId) {
+        return ticketRepository.findByUserId(userId);
     }
-
-    // Getters and Setters for CLI interaction
-    public User getUser() {
-        return this.user;
-    }
-
-    public void setUser(User user) {
-        this.user = user;
-    }
-
-    public List<Train> getTrainList() {
-        return this.trainList;
-    }
-
-
 }
