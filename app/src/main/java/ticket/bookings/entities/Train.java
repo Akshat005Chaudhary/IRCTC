@@ -12,10 +12,23 @@ public class Train{
     private String trainId;
     private String trainNo;
     @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(
+        name = "train_stations",
+        joinColumns = @JoinColumn(name = "train_id")
+    )
     @OrderColumn(name = "station_order")
+    @Column(name = "station_name")
     private List<String> stations;
+
     @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(
+        name = "train_station_times",
+        joinColumns = @JoinColumn(name = "train_id")
+    )
+    @MapKeyColumn(name = "station_name")
+    @Column(name = "arrival_departure_time")
     private Map<String, String> stationTimes;
+
     @Convert(converter = SeatsConverter.class)
     @Column(columnDefinition = "TEXT")
     private List<List<Integer>> seats;

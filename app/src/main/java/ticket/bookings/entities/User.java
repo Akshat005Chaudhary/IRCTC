@@ -12,6 +12,11 @@ public class User{
     private String email;
     private String phone;
     @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(
+        name = "user_tickets_booked",
+        joinColumns = @JoinColumn(name = "user_id")
+    )
+    @Column(name = "ticket_pnr")
     private List<String> ticketsBooked;
     @Id
     private String userId;

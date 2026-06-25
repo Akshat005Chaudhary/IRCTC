@@ -115,12 +115,27 @@ public class UserBookingService {
             throw new IllegalStateException("No seats available on this train.");
         }
 
+        // Calculate the station hops covered
+        List<String> stations = train.getStations();
+        int sourceIndex = stations.indexOf(source);
+        int destIndex = stations.indexOf(destination);
+        int hops = (sourceIndex != -1 && destIndex != -1) ? (destIndex - sourceIndex) : 1;
+
+        // Use JSR-354 / Moneta to calculate price (120 INR per station hop)
+        javax.money.CurrencyUnit currencyUnit = javax.money.Monetary.getCurrency("INR");
+        javax.money.MonetaryAmount baseRate = org.javamoney.moneta.Money.of(120.00, currencyUnit);
+        javax.money.MonetaryAmount totalFare = baseRate.multiply(hops);
+
+        java.math.BigDecimal finalPrice = totalFare.getNumber().numberValue(java.math.BigDecimal.class);
+        String currencyCode = "INR";
+
         // Generate ticket details
         String ticketId = UUID.randomUUID().toString();
         String pnr = "PNR" + (int)(Math.random() * 900000000 + 100000000); // 9-digit random PNR
         String seatNo = "Row " + (bookedRow + 1) + ", Seat " + (bookedCol + 1);
 
-        Ticket newTicket = new Ticket(ticketId, pnr, userId, trainId, source, destination, dateOfTravel, seatNo);
+        Ticket newTicket = new Ticket(ticketId, pnr, userId, trainId, source, destination, dateOfTravel, seatNo, finalPrice, currencyCode);
+
 
         // Save state changes
         trainRepository.save(train);
@@ -148,6 +163,13 @@ public class UserBookingService {
             return false;
         }
         Ticket ticketToCancel = ticketOpt.get();
+
+        // JSR-354 / Moneta refund logic: refund 75% (deduct 25% cancellation charge)
+        javax.money.CurrencyUnit currencyUnit = javax.money.Monetary.getCurrency(ticketToCancel.getCurrency());
+        javax.money.MonetaryAmount ticketPrice = org.javamoney.moneta.Money.of(ticketToCancel.getPrice(), currencyUnit);
+        javax.money.MonetaryAmount refundAmount = ticketPrice.multiply(0.75);
+
+        System.out.println("Processing refund of: " + refundAmount + " back to the user account.");
 
         // Release the seat on the train
         String trainId = ticketToCancel.getTrainId();
@@ -181,5 +203,9 @@ public class UserBookingService {
     // Fetching bookings
     public List<Ticket> fetchBookings(String userId) {
         return ticketRepository.findByUserId(userId);
+    }
+
+    public Optional<User> findUserByEmail(String email) {
+        return userRepository.findByEmail(email);
     }
 }

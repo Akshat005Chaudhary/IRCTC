@@ -4,8 +4,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import ticket.bookings.entities.Ticket;
+import ticket.bookings.entities.User;
 import ticket.bookings.services.UserBookingService;
 
+import java.security.Principal;
 import java.util.List;
 
 @RestController
@@ -20,46 +22,60 @@ public class TicketController {
     }
 
     @PostMapping("/book")
-    public ResponseEntity<?> bookTicket(@RequestBody BookRequest bookRequest) {
-        try {
-            Ticket ticket = bookingService.bookTicket(
-                    bookRequest.getUserId(),
-                    bookRequest.getTrainId(),
-                    bookRequest.getSource(),
-                    bookRequest.getDestination(),
-                    bookRequest.getDateOfTravel()
-            );
-            return ResponseEntity.ok(ticket);
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
+    public ResponseEntity<?> bookTicket(Principal principal, @RequestBody BookRequest bookRequest) {
+        if (principal == null) {
+            throw new org.springframework.security.authentication.InsufficientAuthenticationException("User not authenticated.");
         }
+        String email = principal.getName();
+        User user = bookingService.findUserByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("User not found with email: " + email));
+
+        Ticket ticket = bookingService.bookTicket(
+                user.getUserId(),
+                bookRequest.getTrainId(),
+                bookRequest.getSource(),
+                bookRequest.getDestination(),
+                bookRequest.getDateOfTravel()
+        );
+        return ResponseEntity.ok(ticket);
     }
 
     @PostMapping("/cancel")
-    public ResponseEntity<String> cancelTicket(@RequestBody CancelRequest cancelRequest) {
-        boolean success = bookingService.cancelTicket(cancelRequest.getPnr(), cancelRequest.getUserId());
+    public ResponseEntity<String> cancelTicket(Principal principal, @RequestBody CancelRequest cancelRequest) {
+        if (principal == null) {
+            throw new org.springframework.security.authentication.InsufficientAuthenticationException("User not authenticated.");
+        }
+        String email = principal.getName();
+        User user = bookingService.findUserByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("User not found with email: " + email));
+
+        boolean success = bookingService.cancelTicket(cancelRequest.getPnr(), user.getUserId());
         if (success) {
             return ResponseEntity.ok("Ticket cancelled successfully.");
         } else {
-            return ResponseEntity.badRequest().body("Failed to cancel ticket. Invalid PNR or user matching.");
+            throw new IllegalArgumentException("Failed to cancel ticket. Invalid PNR or user matching.");
         }
     }
 
-    @GetMapping("/user/{userId}")
-    public ResponseEntity<List<Ticket>> fetchBookings(@PathVariable String userId) {
-        List<Ticket> tickets = bookingService.fetchBookings(userId);
+    @GetMapping("/bookings")
+    public ResponseEntity<?> fetchBookings(Principal principal) {
+        if (principal == null) {
+            throw new org.springframework.security.authentication.InsufficientAuthenticationException("User not authenticated.");
+        }
+        String email = principal.getName();
+        User user = bookingService.findUserByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("User not found with email: " + email));
+
+        List<Ticket> tickets = bookingService.fetchBookings(user.getUserId());
         return ResponseEntity.ok(tickets);
     }
 
     public static class BookRequest {
-        private String userId;
         private String trainId;
         private String source;
         private String destination;
         private String dateOfTravel;
 
-        public String getUserId() { return userId; }
-        public void setUserId(String userId) { this.userId = userId; }
         public String getTrainId() { return trainId; }
         public void setTrainId(String trainId) { this.trainId = trainId; }
         public String getSource() { return source; }
@@ -72,11 +88,8 @@ public class TicketController {
 
     public static class CancelRequest {
         private String pnr;
-        private String userId;
 
         public String getPnr() { return pnr; }
         public void setPnr(String pnr) { this.pnr = pnr; }
-        public String getUserId() { return userId; }
-        public void setUserId(String userId) { this.userId = userId; }
     }
 }

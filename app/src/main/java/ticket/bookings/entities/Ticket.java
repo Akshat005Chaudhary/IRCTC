@@ -14,6 +14,9 @@ public class Ticket{
     private String destination;
     private String dateOfTravel;
     private String seatNo;
+    private java.math.BigDecimal price;
+    private String currency;
+
 
     public Ticket(){
         this.ticketId = "";
@@ -24,18 +27,27 @@ public class Ticket{
         this.destination = "";
         this.dateOfTravel = "";
         this.seatNo = "";
+        this.price = java.math.BigDecimal.ZERO;
+        this.currency = "INR";
     }
 
-    public Ticket(String ticketId, String pnr, String userId, String trainId, String source, String destination, String dateOfTravel, String seatNo){
-        this.ticketId = ticketId;
-        this.pnr = pnr;
-        this.userId = userId;
-        this.trainId = trainId;
-        this.source = source;
-        this.destination = destination;
-        this.dateOfTravel = dateOfTravel;
-        this.seatNo = seatNo;
+    public Ticket(String ticketId, String pnr, String userId, String trainId, String source, String destination, String dateOfTravel, String seatNo) {
+        this(ticketId, pnr, userId, trainId, source, destination, dateOfTravel, seatNo, java.math.BigDecimal.valueOf(100.00), "INR");
     }
+
+    public Ticket(String ticketId, String pnr, String userId, String trainId, String source, String destination, String dateOfTravel, String seatNo, java.math.BigDecimal price, String currency) {
+    this.ticketId = ticketId;
+    this.pnr = pnr;
+    this.userId = userId;
+    this.trainId = trainId;
+    this.source = source;
+    this.destination = destination;
+    this.dateOfTravel = dateOfTravel;
+    this.seatNo = seatNo;
+    this.price = price;
+    this.currency = currency;
+}
+
 
     public void setTicketId(String ticketId){
         this.ticketId = ticketId;
@@ -100,4 +112,26 @@ public class Ticket{
     public String getSeatNo(){
         return this.seatNo;
     }
+
+    public java.math.BigDecimal getPrice() {
+    return price;
+    }
+
+    public String getCurrency() {
+    return currency;
+    }
+
+    public void setPrice(java.math.BigDecimal price) {
+        this.price = price;
+    }
+
+    public void setCurrency(String currency) {
+        this.currency = currency;
+    }
+
+    public javax.money.MonetaryAmount getMonetaryPrice() {
+        return org.javamoney.moneta.Money.of(this.price, javax.money.Monetary.getCurrency(this.currency));
+    }
+
+    
 }

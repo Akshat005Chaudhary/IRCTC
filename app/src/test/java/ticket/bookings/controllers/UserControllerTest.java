@@ -11,7 +11,9 @@ import ticket.bookings.entities.User;
 
 import java.util.ArrayList;
 
+import static org.hamcrest.Matchers.notNullValue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest
@@ -26,7 +28,8 @@ public class UserControllerTest {
 
     @Test
     public void testSignUpAndLogin() throws Exception {
-        User user = new User("Test User", "test@example.com", "1234567890", "user123", "password123", new ArrayList<>());
+        String email = "test_" + System.currentTimeMillis() + "@example.com";
+        User user = new User("Test User", email, "1234567890", "user123", "password123", new ArrayList<>());
 
         // 1. Perform Signup and expect 200 OK
         mockMvc.perform(post("/api/users/signup")
@@ -36,12 +39,13 @@ public class UserControllerTest {
 
         // 2. Perform Login and expect 200 OK
         UserController.LoginRequest loginRequest = new UserController.LoginRequest();
-        loginRequest.setEmail("test@example.com");
+        loginRequest.setEmail(email);
         loginRequest.setPassword("password123");
 
         mockMvc.perform(post("/api/users/login")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(loginRequest)))
-                .andExpect(status().isOk());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.token").value(notNullValue()));
     }
 }
