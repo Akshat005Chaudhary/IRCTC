@@ -33,6 +33,9 @@ public class Train{
     @Column(columnDefinition = "TEXT")
     private List<List<Integer>> seats;
 
+    @Version
+    private Long version;
+
     public Train(){
         this.trainId = "";
         this.trainNo = "";
@@ -87,5 +90,13 @@ public class Train{
 
     public List<List<Integer>> getSeats(){
         return this.seats;
+    }
+
+    public Long getVersion() {
+        return this.version;
+    }
+
+    public void setVersion(Long version) {
+        this.version = version;
     }
 }

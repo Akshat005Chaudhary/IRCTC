@@ -2,6 +2,9 @@ package ticket.bookings.services;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.transaction.annotation.Transactional;
 import ticket.bookings.entities.*;
 import ticket.bookings.repositories.*;
 import ticket.bookings.util.UserServiceUtil;
@@ -29,6 +32,7 @@ public class UserBookingService {
     }
 
     // Signup method
+    @Transactional
     public boolean signUpUser(User user) {
         if (userRepository.findByEmail(user.getEmail()).isPresent()) {
             System.out.println("User with email " + user.getEmail() + " already exists.");
@@ -62,6 +66,7 @@ public class UserBookingService {
     }
 
     // Train Search
+    @Cacheable(value = "trains", key = "#source + '-' + #destination")
     public List<Train> searchTrains(String source, String destination) {
         List<Train> allTrains = trainRepository.findAll();
         List<Train> foundTrains = new ArrayList<>();
@@ -80,6 +85,8 @@ public class UserBookingService {
     }
 
     // Book ticket
+    @Transactional
+    @CacheEvict(value = "trains", allEntries = true)
     public Ticket bookTicket(String userId, String trainId, String source, String destination, String dateOfTravel) {
         Optional<User> userOpt = userRepository.findById(userId);
         if (userOpt.isEmpty()) {
@@ -87,7 +94,7 @@ public class UserBookingService {
         }
         User user = userOpt.get();
 
-        Optional<Train> trainOpt = trainRepository.findById(trainId);
+        Optional<Train> trainOpt = trainRepository.findByIdForUpdate(trainId);
         if (trainOpt.isEmpty()) {
             throw new IllegalArgumentException("Train not found.");
         }
@@ -149,6 +156,8 @@ public class UserBookingService {
     }
 
     // Cancel Ticket
+    @Transactional
+    @CacheEvict(value = "trains", allEntries = true)
     public boolean cancelTicket(String pnr, String userId) {
         Optional<User> userOpt = userRepository.findById(userId);
         if (userOpt.isEmpty()) {
@@ -175,7 +184,7 @@ public class UserBookingService {
         String trainId = ticketToCancel.getTrainId();
         String seatNo = ticketToCancel.getSeatNo();
 
-        Optional<Train> trainOpt = trainRepository.findById(trainId);
+        Optional<Train> trainOpt = trainRepository.findByIdForUpdate(trainId);
         if (trainOpt.isPresent()) {
             Train train = trainOpt.get();
             try {
